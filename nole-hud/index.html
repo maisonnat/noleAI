@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoleAI HUD</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tauri-apps/api@1.5.0/dist/tauri.umd.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .timer-section {
+            background: #16213e;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .timer-display {
+            font-size: 72px;
+            font-weight: bold;
+            color: #0f3460;
+            margin: 20px 0;
+        }
+        .timer-controls button {
+            padding: 15px 30px;
+            margin: 0 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #e94560;
+            color: white;
+        }
+        .timer-controls button:hover {
+            background: #ff6b6b;
+        }
+        .timer-controls button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        .plan-section {
+            background: #16213e;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .task-list {
+            list-style: none;
+            padding: 0;
+        }
+        .task-item {
+            background: #0f3460;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .subject-badge {
+            background: #e94560;
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .controls button {
+            padding: 12px 24px;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #0f3460;
+            color: white;
+        }
+        .controls button:hover {
+            background: #1a1a2e;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #16213e;
+            padding: 40px;
+            border-radius: 12px;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        .modal.active {
+            display: block;
+        }
+        .modal h2 {
+            color: #e94560;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>NoleAI HUD - ADHD Study Assistant</h1>
+        
+        <div class="timer-section">
+            <h2>Pomodoro Timer</h2>
+            <div class="timer-display" id="timerDisplay">25:00</div>
+            <div class="timer-controls">
+                <button id="startBtn" onclick="startTimer()">▶ Start</button>
+                <button id="pauseBtn" onclick="pauseTimer()" disabled>⏸ Pause</button>
+                <button id="resumeBtn" onclick="resumeTimer()" disabled>▶ Resume</button>
+                <button id="stopBtn" onclick="stopTimer()" disabled>⏹ Stop</button>
+            </div>
+        </div>
+        
+        <div class="plan-section">
+            <div class="controls">
+                <button onclick="generateDailyPlan()">📋 Generate Daily Plan</button>
+                <button onclick="triggerOverloadMode()">🚨 Overload Mode</button>
+            </div>
+            <h2>Today's Study Plan</h2>
+            <ul class="task-list" id="taskList">
+                <li class="task-item">
+                    <span>No tasks yet - generate your daily plan!</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="modal" id="breakModal">
+        <h2>⏰ Time for a Break!</h2>
+        <p>Great job completing a Pomodoro session. Take a 5-minute break to recharge.</p>
+        <div class="timer-controls">
+            <button onclick="closeModal()">Got it!</button>
+        </div>
+    </div>
+
+    <script>
+        const { invoke } = window.__TAURI__.tauri;
+        const { listen } = window.__TAURI__.event;
+        
+        let timerInterval = null;
+        
+        async function startTimer() {
+            await invoke('start_timer');
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = false;
+        }
+        
+        async function pauseTimer() {
+            await invoke('pause_timer');
+            document.getElementById('pauseBtn').disabled = true;
+            document.getElementById('resumeBtn').disabled = false;
+        }
+        
+        async function resumeTimer() {
+            await invoke('resume_timer');
+            document.getElementById('resumeBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = false;
+        }
+        
+        async function stopTimer() {
+            await invoke('stop_timer');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('pauseBtn').disabled = true;
+            document.getElementById('resumeBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('timerDisplay').textContent = '25:00';
+        }
+        
+        function updateTimerDisplay(remainingSeconds) {
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            document.getElementById('timerDisplay').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        function handleTimerTick(event) {
+            updateTimerDisplay(event.payload.remaining_secs);
+        }
+        
+        function showBreakModal() {
+            document.getElementById('breakModal').classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('breakModal').classList.remove('active');
+        }
+        
+        async function generateDailyPlan() {
+            try {
+                await invoke('generate_daily_plan');
+                alert('Daily plan generated!');
+                // In a real implementation, you'd fetch and display the plan
+            } catch (error) {
+                console.error('Failed to generate plan:', error);
+                alert('Failed to generate daily plan. Please check the vault directory.');
+            }
+        }
+        
+        async function triggerOverloadMode() {
+            try {
+                await invoke('trigger_overload_mode');
+                alert('Overload mode activated! Simplifying your plan...');
+            } catch (error) {
+                console.error('Failed to activate overload mode:', error);
+            }
+        }
+        
+        // Set up event listeners
+        listen('TimerTick', handleTimerTick);
+        listen('TimerBreakRequested', showBreakModal);
+        
+        // Poll for timer state
+        setInterval(async () => {
+            try {
+                const state = await invoke('get_timer_state');
+                if (state.is_running && !state.is_paused) {
+                    // Timer is running, the UI will be updated by events
+                }
+            } catch (error) {
+                console.error('Failed to get timer state:', error);
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
