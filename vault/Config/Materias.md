@@ -1,3 +1,7 @@
 # Materias y Configuración
-## Ciberdefensa
-## Matemáticas
+
+## Lista de Materias Activas
+- Ciberdefensa
+- Matemáticas
+- Análisis Matemático
+- FADENA (Estudio General)
