@@ -7,8 +7,8 @@ use std::sync::Mutex;
 use tauri::State;
 
 // Importar los mocks de inteligencia
-use the_crab_engram::Engram;
 use notebooklm_rust_mcp::McpBridge;
+use the_crab_engram::Engram;
 
 // Estado global de la aplicación
 struct AppState {
@@ -21,7 +21,7 @@ struct AppState {
 #[tauri::command]
 fn get_daily_task(state: State<AppState>) -> String {
     let vault_path = PathBuf::from("../../vault");
-    
+
     match vault::parse_materias(&vault_path) {
         Ok(materias) => {
             if materias.is_empty() {
@@ -31,8 +31,8 @@ fn get_daily_task(state: State<AppState>) -> String {
                 *state.current_task.lock().unwrap() = task.clone();
                 task
             }
-        },
-        Err(_) => "Error al leer vault".to_string()
+        }
+        Err(_) => "Error al leer vault".to_string(),
     }
 }
 
@@ -42,13 +42,16 @@ fn start_session(state: State<AppState>) -> String {
     if *studying {
         return "Sesión ya en curso".to_string();
     }
-    
+
     *studying = true;
     let task = state.current_task.lock().unwrap().clone();
-    
+
     // Hito 4: Conectar con Engram al iniciar (mock)
-    state.engram.mem_save(&task, 25).unwrap_or_else(|e| eprintln!("{}", e));
-    
+    state
+        .engram
+        .mem_save(&task, 25)
+        .unwrap_or_else(|e| eprintln!("{}", e));
+
     format!("🟢 Sesión iniciada para: {}", task)
 }
 
@@ -59,6 +62,20 @@ fn trigger_overload_mode() -> String {
     "Respira. Simplificando vista...".to_string()
 }
 
+#[tauri::command]
+fn test_topic(topic: String, state: State<AppState>) -> Result<Vec<String>, String> {
+    // Hito 4: Implementar comando test [topic] que dispare el flujo de NotebookLM
+    println!("📚 [TEST] Generando quiz para tema: {}", topic);
+
+    // Simular la ingesta de un PDF relacionado con el tema
+    let mock_pdf_path = format!("vault/{}.pdf", topic.to_lowercase().replace(" ", "_"));
+
+    match state.mcp.generate_quiz_from_pdf(&mock_pdf_path) {
+        Ok(questions) => Ok(questions),
+        Err(e) => Err(format!("Error generando quiz: {}", e)),
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(AppState {
@@ -67,7 +84,12 @@ fn main() {
             engram: Engram::new(),
             mcp: McpBridge::new(),
         })
-        .invoke_handler(tauri::generate_handler![get_daily_task, start_session, trigger_overload_mode])
+        .invoke_handler(tauri::generate_handler![
+            get_daily_task,
+            start_session,
+            trigger_overload_mode,
+            test_topic
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
