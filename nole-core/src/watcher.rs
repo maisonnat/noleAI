@@ -1,24 +1,31 @@
-use anyhow::Result;
-use std::path::{Path, PathBuf};
+use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use std::path::Path;
 
-/// Estructura para monitorear cambios en el Vault de Obsidian
-pub struct VaultWatcher {
-    vault_path: PathBuf,
-}
+/// Inicia un watcher síncrono en un hilo aparte para detectar cambios en el Vault.
+pub fn start_watcher(vault_path: &Path) -> notify::Result<RecommendedWatcher> {
+    let (tx, rx) = std::sync::mpsc::channel();
 
-impl VaultWatcher {
-    pub fn new(vault_path: &Path) -> Self {
-        Self {
-            vault_path: vault_path.to_path_buf(),
+    let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+    watcher.watch(vault_path, RecursiveMode::Recursive)?;
+
+    println!("👀 Watcher iniciado para: {:?}", vault_path);
+
+    // Hilo dedicado para escuchar eventos
+    std::thread::spawn(move || {
+        while let Ok(res) = rx.recv() {
+            match res {
+                Ok(event) => {
+                    if matches!(event.kind, EventKind::Create(_) | EventKind::Modify(_)) {
+                        for path in event.paths {
+                            // Aquí se emitirá un Event::ObsidianVaultChanged al EventBus en el futuro
+                            println!("🔄 Cambio detectado en: {:?}", path);
+                        }
+                    }
+                }
+                Err(e) => eprintln!("⚠️ Error en watcher: {:?}", e),
+            }
         }
-    }
+    });
 
-    /// Inicia el monitoreo del vault (Implementación placeholder para Hito 2)
-    pub async fn start(&self) -> Result<()> {
-        // En una implementación real (Hito 2 completo), usaríamos `notify` crate
-        // para detectar eventos de archivos y disparar `ObsidianVaultChanged`
-        // en el EventBus.
-        println!("Watcher iniciado (placeholder) en: {:?}", self.vault_path);
-        Ok(())
-    }
+    Ok(watcher)
 }
