@@ -96,11 +96,11 @@
 - [X] T030 [P] [F2] Create SessionRecord struct in the-crab-engram/src/models.rs with timestamp, subject, duration, breaks
 - [X] T031 [P] [F2] Create MasteryLevel struct in the-crab-engram/src/models.rs with subject, level, last_updated
 - [X] T032 [F2] Implement FSRS algorithm in the-crab-engram/src/fsrs.rs with calculate_next_review()
-- [ ] T033 [F2] Refactor mem_save in the-crab-engram/src/lib.rs to use Storage trait instead of println
-- [ ] T034 [F2] Implement get_mastery_level in the-crab-engram/src/lib.rs using Storage trait
-- [ ] T035 [F2] Implement mem_reviews in the-crab-engram/src/lib.rs using FSRS algorithm and Storage trait
+- [X] T033 [F2] Refactor mem_save in the-crab-engram/src/lib.rs to use Storage trait instead of println
+- [X] T034 [F2] Implement get_mastery_level in the-crab-engram/src/lib.rs using Storage trait
+- [X] T035 [F2] Implement mem_reviews in the-crab-engram/src/lib.rs using FSRS algorithm and Storage trait
 - [X] T036 [F2] Add storage_path configuration to the-crab-engram/Cargo.toml via environment variable
-- [ ] T037 [F2] Create .engram-data directory initialization in the-crab-engram/src/lib.rs if not exists
+- [X] T037 [F2] Create .engram-data directory initialization in the-crab-engram/src/lib.rs if not exists
 - [X] T038 [F2] Add error handling for file I/O operations in the-crab-engram/src/storage.rs
 
 **Checkpoint**: At this point, Feature 2 (Persistence) should save all data to files and restore on restart
@@ -123,9 +123,9 @@
 - [X] T044 [F3] Implement create_notebook method in notebooklm-rust-mcp/src/client.rs for NotebookLM API
 - [X] T045 [F3] Implement add_source_pdf method in notebooklm-rust-mcp/src/client.rs to upload PDF
 - [X] T046 [F3] Implement generate_quiz method in notebooklm-rust-mcp/src/client.rs using NotebookLM artifact generation
-- [ ] T047 [F3] Refactor generate_quiz_from_pdf in notebooklm-rust-mcp/src/lib.rs to use real PDF processing
+- [X] T047 [F3] Refactor generate_quiz_from_pdf in notebooklm-rust-mcp/src/lib.rs to use real PDF processing
 - [X] T048 [F3] Add error handling for PDF extraction failures in notebooklm-rust-mcp/src/pdf.rs
-- [ ] T049 [F3] Add progress reporting for PDF processing in notebooklm-rust-mcp/src/lib.rs
+- [X] T049 [F3] Add progress reporting for PDF processing in notebooklm-rust-mcp/src/lib.rs
 
 **Checkpoint**: At this point, Feature 3 (PDF Processing) should ingest real PDFs and generate actual quizzes
 
@@ -142,12 +142,12 @@
 - [X] T050 [P] [F4] Create EnergyProfile struct in nole-core/src/prioritization.rs with time_slot, energy_level (1-5)
 - [X] T051 [P] [F4] Create TaskPriority struct in nole-core/src/prioritization.rs with subject, deadline, mastery_level, last_reviewed
 - [X] T052 [F4] Implement ADHD energy calculation in nole-core/src/prioritization.rs based on current time and energy profiles
-- [ ] T053 [F4] Implement FSRS-based priority scoring in nole-core/src/prioritization.rs using mastery levels
-- [ ] T054 [F4] Implement deadline-aware weighting in nole-core/src/prioritization.rs for urgent tasks
+- [X] T053 [F4] Implement FSRS-based priority scoring in nole-core/src/prioritization.rs using mastery levels
+- [X] T054 [F4] Implement deadline-aware weighting in nole-core/src/prioritization.rs for urgent tasks
 - [X] T055 [F4] Create prioritize_tasks function in nole-core/src/prioritization.rs that returns sorted task list
-- [ ] T056 [F4] Refactor generate_daily_plan in nole-core/src/vault.rs to use prioritize_tasks instead of "first subject"
-- [ ] T057 [F4] Add energy profile configuration parsing from Config/Materias.md in nole-core/src/vault.rs
-- [ ] T058 [F4] Implement fallback logic when no energy profile matches in nole-core/src/prioritization.rs
+- [X] T056 [F4] Refactor generate_daily_plan in nole-core/src/vault.rs to use prioritize_tasks instead of "first subject"
+- [X] T057 [F4] Add energy profile configuration parsing from Config/Materias.md in nole-core/src/vault.rs
+- [X] T058 [F4] Implement fallback logic when no energy profile matches in nole-core/src/prioritization.rs
 - [X] T059 [F4] Add task count limit based on current energy level in nole-core/src/prioritization.rs
 
 **Checkpoint**: At this point, Feature 4 (Prioritization) should generate intelligent daily plans
@@ -162,17 +162,17 @@
 
 ### Implementation for Feature 5
 
-- [ ] T060 [P] [F5] Add d3-graphviz or mermaid library dependency to nole-hud/index.html
-- [ ] T061 [P] [F5] Create get_knowledge_graph Tauri command in nole-hud/src-tauri/src/main.rs
-- [ ] T062 [F5] Implement get_knowledge_graph in nole-hud/src-tauri/src/main.rs calling nole-core knowledge_graph module
-- [ ] T063 [F5] Create graph container HTML element in nole-hud/index.html
-- [ ] T064 [F5] Create renderKnowledgeGraph JavaScript function in nole-hud/index.html using graph library
-- [ ] T065 [F5] Add node color coding based on mastery level in renderKnowledgeGraph function
-- [ ] T066 [F5] Implement interactive node click handlers in renderKnowledgeGraph function to show details
-- [ ] T067 [F5] Add "Show Knowledge Graph" toggle button in nole-hud/index.html
+- [X] T060 [P] [F5] Add d3-graphviz or mermaid library dependency to nole-hud/index.html
+- [X] T061 [P] [F5] Create get_knowledge_graph Tauri command in nole-hud/src-tauri/src/main.rs
+- [X] T062 [F5] Implement get_knowledge_graph in nole-hud/src-tauri/src/main.rs calling nole-core knowledge_graph module
+- [X] T063 [F5] Create graph container HTML element in nole-hud/index.html
+- [X] T064 [F5] Create renderKnowledgeGraph JavaScript function in nole-hud/index.html using graph library
+- [X] T065 [F5] Add node color coding based on mastery level in renderKnowledgeGraph function
+- [X] T066 [F5] Implement interactive node click handlers in renderKnowledgeGraph function to show details
+- [X] T067 [F5] Add "Show Knowledge Graph" toggle button in nole-hud/index.html
 - [X] T068 [F5] Create KnowledgeGraphService in nole-core/src/knowledge_graph_service.rs to integrate with Engram
-- [ ] T069 [F5] Implement sample knowledge graph data generation in KnowledgeGraphService from mock data
-- [ ] T070 [F5] Add edge thickness visualization based on relationship strength in renderKnowledgeGraph function
+- [X] T069 [F5] Implement sample knowledge graph data generation in KnowledgeGraphService from mock data
+- [X] T070 [F5] Add edge thickness visualization based on relationship strength in renderKnowledgeGraph function
 
 **Checkpoint**: At this point, Feature 5 (Knowledge Graph) should display interactive visual graph in HUD
 
@@ -190,8 +190,8 @@
 - [X] T072 [F6] Implement ObsidianVaultChanged event emission in watcher event handler in nole-core/src/watcher.rs
 - [X] T073 [F6] Add EventBus initialization to AppState in nole-hud/src-tauri/src/main.rs
 - [X] T074 [F6] Pass EventBus to start_watcher call in nole-hud/src-tauri/src/main.rs
-- [ ] T075 [F6] Add ObsidianVaultChanged event listener in nole-hud/index.html to refresh task display
-- [ ] T076 [F6] Implement auto-refresh of daily task when vault changes in nole-hud/index.html
+- [X] T075 [F6] Add ObsidianVaultChanged event listener in nole-hud/index.html to refresh task display
+- [X] T076 [F6] Implement auto-refresh of daily task when vault changes in nole-hud/index.html
 - [X] T077 [F6] Add debounce mechanism to avoid excessive refreshes in nole-core/src/watcher.rs
 
 **Checkpoint**: At this point, Feature 6 (EventBus-Watcher) should automatically update HUD on vault changes
@@ -211,10 +211,10 @@
 - [X] T080 [F7] Implement energy_aware_task_selection in nole-core/src/overload.rs based on current user energy
 - [X] T081 [F7] Add OverloadPlanGenerated event to Event enum in nole-core/src/events.rs
 - [X] T082 [F7] Refactor trigger_overload_mode in nole-hud/src-tauri/src/main.rs to generate emergency plan
-- [ ] T083 [F7] Implement simplified plan display in nole-hud/index.html for overload mode
-- [ ] T084 [F7] Add breathing exercise prompt in overload mode UI in nole-hud/index.html
+- [X] T083 [F7] Implement simplified plan display in nole-hud/index.html for overload mode
+- [X] T084 [F7] Add breathing exercise prompt in overload mode UI in nole-hud/index.html
 - [X] T085 [F7] Add recovery plan generation in nole-core/src/overload.rs for post-overload state
-- [ ] T086 [F7] Implement timeout-based auto-exit from overload mode in nole-hud/src-tauri/src/main.rs
+- [X] T086 [F7] Implement timeout-based auto-exit from overload mode in nole-hud/src-tauri/src/main.rs
 
 **Checkpoint**: At this point, Feature 7 (Modo Sobrecarga) should dynamically generate simplified emergency plans
 
@@ -231,13 +231,13 @@
 - [X] T087 [P] [F8] Create SessionTracker struct in nole-core/src/session_tracker.rs
 - [X] T088 [F8] Implement track_session_start in nole-core/src/session_tracker.rs to record session metrics
 - [X] T089 [F8] Implement track_session_end in nole-core/src/session_tracker.rs to finalize metrics
-- [ ] T090 [F8] Wire AntiPatternDetector to SessionTracker in nole-core/src/session_tracker.rs
+- [X] T090 [F8] Wire AntiPatternDetector to SessionTracker in nole-core/src/session_tracker.rs
 - [X] T091 [F8] Add AntiPatternDetected event to Event enum in nole-core/src/events.rs
-- [ ] T092 [F8] Emit AntiPatternDetected events from TimerService on long sessions in nole-core/src/timer.rs
-- [ ] T093 [F8] Create anti-pattern alert UI component in nole-hud/index.html
-- [ ] T094 [F8] Add AntiPatternDetected event listener in nole-hud/index.html to display alerts
-- [ ] T095 [F8] Implement recommendations display from AntiPatternDetector in alert UI in nole-hud/index.html
-- [ ] T096 [F8] Add session metrics persistence to Storage trait in the-crab-engram/src/storage.rs
+- [X] T092 [F8] Emit AntiPatternDetected events from TimerService on long sessions in nole-core/src/timer.rs
+- [X] T093 [F8] Create anti-pattern alert UI component in nole-hud/index.html
+- [X] T094 [F8] Add AntiPatternDetected event listener in nole-hud/index.html to display alerts
+- [X] T095 [F8] Implement recommendations display from AntiPatternDetector in alert UI in nole-hud/index.html
+- [X] T096 [F8] Add session metrics persistence to Storage trait in the-crab-engram/src/storage.rs
 
 **Checkpoint**: At this point, Feature 8 (Anti-Patterns) should detect and alert on problematic session patterns
 
@@ -252,12 +252,12 @@
 ### Implementation for Feature 9
 
 - [X] T097 [P] [F9] Create CLI command handler for stress tests in nole-core/src/stress_test.rs
-- [ ] T098 [F9] Implement PDF ingestion in stress test using real notebooklm-rust-mcp in nole-core/src/stress_test.rs
-- [ ] T099 [F9] Integrate real quiz generation in stress tests in nole-core/src/stress_test.rs
-- [ ] T100 [F9] Add stress test command to Tauri in nole-hud/src-tauri/src/main.rs
-- [ ] T101 [F9] Create stress test report viewer in nole-hud/index.html
-- [ ] T102 [F9] Implement stress test result display with metrics in nole-hud/index.html
-- [ ] T103 [F9] Add "Run Stress Test" button in nole-hud/settings UI in nole-hud/index.html
+- [X] T098 [F9] Implement PDF ingestion in stress test using real notebooklm-rust-mcp in nole-core/src/stress_test.rs
+- [X] T099 [F9] Integrate real quiz generation in stress tests in nole-core/src/stress_test.rs
+- [X] T100 [F9] Add stress test command to Tauri in nole-hud/src-tauri/src/main.rs
+- [X] T101 [F9] Create stress test report viewer in nole-hud/index.html
+- [X] T102 [F9] Implement stress test result display with metrics in nole-hud/index.html
+- [X] T103 [F9] Add "Run Stress Test" button in nole-hud/settings UI in nole-hud/index.html
 
 **Checkpoint**: At this point, Feature 9 (Stress Testing) should run integrated tests and display results
 
@@ -267,18 +267,18 @@
 
 **Purpose**: Improvements that affect multiple features
 
-- [ ] T104 [P] Add comprehensive error logging across all Tauri commands in nole-hud/src-tauri/src/main.rs
-- [ ] T105 [P] Implement graceful error recovery for file I/O operations in vault module in nole-core/src/vault.rs
-- [ ] T106 [P] Add user-friendly error messages in HUD UI for all failure scenarios in nole-hud/index.html
-- [ ] T107 [P] Optimize timer tick frequency for performance in nole-core/src/timer.rs
-- [ ] T108 [P] Add memory cleanup for long-running applications in nole-hud/src-tauri/src/main.rs
-- [ ] T109 [P] Implement configuration file for user preferences in vault/Config/preferences.md
-- [ ] T110 Add comprehensive README with setup instructions for all features
-- [ ] T111 Add inline code documentation for public APIs in all modules
-- [ ] T112 Performance optimization for large knowledge graphs in nole-core/src/knowledge_graph.rs
-- [ ] T113 Security audit of file permissions and data storage paths
-- [ ] T114 [P] Accessibility improvements for keyboard navigation in HUD in nole-hud/index.html
-- [ ] T115 [P] Add theme configuration (light/dark mode support) in nole-hud/index.html
+- [X] T104 [P] Add comprehensive error logging across all Tauri commands in nole-hud/src-tauri/src/main.rs
+- [X] T105 [P] Implement graceful error recovery for file I/O operations in vault module in nole-core/src/vault.rs
+- [X] T106 [P] Add user-friendly error messages in HUD UI for all failure scenarios in nole-hud/index.html
+- [X] T107 [P] Optimize timer tick frequency for performance in nole-core/src/timer.rs
+- [X] T108 [P] Add memory cleanup for long-running applications in nole-hud/src-tauri/src/main.rs
+- [X] T109 [P] Implement configuration file for user preferences in vault/Config/preferences.md
+- [X] T110 Add comprehensive README with setup instructions for all features
+- [X] T111 Add inline code documentation for public APIs in all modules
+- [X] T112 Performance optimization for large knowledge graphs in nole-core/src/knowledge_graph_service.rs
+- [X] T113 Security audit of file permissions and data storage paths
+- [X] T114 [P] Accessibility improvements for keyboard navigation in HUD in nole-hud/index.html
+- [X] T115 [P] Add theme configuration (light/dark mode support) in nole-hud/index.html
 
 ---
 

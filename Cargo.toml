@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "nole-core",
-    "nole-hud",
     "the-crab-engram",
     "notebooklm-rust-mcp"
 ]

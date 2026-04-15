@@ -1,2 +1,1 @@
-// Re-export commonly used types from storage
-pub use crate::storage::{MasteryLevel, SessionRecord};
+pub use crate::storage::{MasteryLevel, SessionMetrics, SessionRecord};

@@ -1,7 +1,6 @@
 // Session commands
 use the_crab_engram::{SessionRecord, MasteryLevel, Storage};
 use std::sync::Arc;
-use tauri::State;
 
 #[derive(Clone)]
 pub struct SessionState {
@@ -12,7 +11,7 @@ pub async fn save_session(
     subject: String,
     duration_seconds: u32,
     breaks: u32,
-    state: State<'_, SessionState>,
+    state: SessionState,
 ) -> Result<String, String> {
     let session = SessionRecord {
         timestamp: chrono::Utc::now(),
@@ -29,7 +28,7 @@ pub async fn save_session(
 
 pub async fn get_mastery_level(
     subject: String,
-    state: State<'_, SessionState>,
+    state: SessionState,
 ) -> Result<Option<MasteryLevel>, String> {
     state.storage.get_mastery(&subject).await
         .map_err(|e| e.to_string())

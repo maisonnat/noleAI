@@ -1,12 +1,19 @@
-// FSRS (Free Spaced Repetition Scheduler) algorithm
 use chrono::{DateTime, Duration, Utc};
 
+/// Calculate the next review date using a simplified FSRS algorithm.
+///
+/// # Arguments
+/// * `last_reviewed` - When the item was last reviewed
+/// * `current_interval_days` - Current spacing interval in days
+/// * `performance_rating` - 1-5 scale (5 = perfect recall)
+///
+/// # Returns
+/// A tuple of (next_review_date, new_interval_days)
 pub fn calculate_next_review(
     last_reviewed: DateTime<Utc>,
     current_interval_days: u32,
-    performance_rating: u8, // 1-5 scale, where 5 is perfect recall
+    performance_rating: u8,
 ) -> (DateTime<Utc>, u32) {
-    // Simplified FSRS implementation
     let new_interval = match performance_rating {
         5 => (current_interval_days as f64 * 2.5) as u32,
         4 => (current_interval_days as f64 * 1.5) as u32,
@@ -20,6 +27,10 @@ pub fn calculate_next_review(
     (next_review, new_interval.max(1))
 }
 
+/// Calculate a mastery level (1-5) based on review history.
+///
+/// Factors in success rate and the current review interval length.
+/// Longer intervals with high success rates indicate higher mastery.
 pub fn calculate_mastery_level(
     successful_reviews: u32,
     total_reviews: u32,

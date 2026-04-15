@@ -62,6 +62,13 @@ impl SessionTracker {
             session.duration_without_breaks += seconds;
         }
     }
+
+    pub fn get_current_duration_without_breaks(&self) -> u32 {
+        self.current_session
+            .as_ref()
+            .map(|s| s.duration_without_breaks)
+            .unwrap_or(0)
+    }
 }
 
 impl Default for SessionTracker {

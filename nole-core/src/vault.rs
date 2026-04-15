@@ -1,3 +1,7 @@
+use crate::prioritization::{
+    calculate_current_energy_with_profile, get_energy_based_task_count, prioritize_tasks,
+    EnergyProfile, TaskPriority,
+};
 use chrono::{DateTime, Utc};
 use regex::Regex;
 use std::fs;
@@ -54,8 +58,19 @@ impl VaultParser {
         })
     }
 
+    pub fn get_vault_path(&self) -> &Path {
+        &self.vault_path
+    }
+
+    pub fn set_vault_path(&mut self, new_path: PathBuf) {
+        self.vault_path = new_path;
+    }
+
     pub fn parse_config(&self) -> VaultResult<Vec<Subject>> {
         let config_path = self.vault_path.join("Config").join("Materias.md");
+        if !config_path.exists() {
+            return Ok(Vec::new());
+        }
         let content = fs::read_to_string(&config_path)?;
         self.parse_subjects(&content)
     }
@@ -101,20 +116,42 @@ impl VaultParser {
 
     pub fn generate_daily_plan(&self, subjects: &[Subject]) -> VaultResult<DailyPlan> {
         let date = Utc::now().format("%Y-%m-%d").to_string();
+
+        let energy_profiles = self.parse_energy_profiles().unwrap_or_default();
+        let energy = calculate_current_energy_with_profile(&energy_profiles);
+        let max_tasks = get_energy_based_task_count(energy);
+
+        let task_priorities: Vec<TaskPriority> = subjects
+            .iter()
+            .map(|s| TaskPriority {
+                subject: s.name.clone(),
+                deadline: None,
+                mastery_level: s.mastery_level,
+                last_reviewed: s.last_studied,
+                estimated_minutes: 25,
+            })
+            .collect();
+
+        let prioritized = prioritize_tasks(task_priorities);
+        let limited = prioritized.into_iter().take(max_tasks);
+
         let mut tasks = Vec::new();
         let mut total_minutes = 0u32;
 
-        // Simple implementation: take one topic from each subject
-        for subject in subjects {
-            if let Some(topic) = subject.topics.first() {
-                tasks.push(StudyTask {
-                    subject: subject.name.clone(),
-                    topic: topic.clone(),
-                    estimated_minutes: 25, // Default Pomodoro length
-                    priority: self.calculate_priority(subject),
-                });
-                total_minutes += 25;
-            }
+        for tp in limited {
+            let subject = subjects.iter().find(|s| s.name == tp.subject);
+            let topic = subject
+                .and_then(|s| s.topics.first())
+                .cloned()
+                .unwrap_or_else(|| "General review".to_string());
+
+            tasks.push(StudyTask {
+                subject: tp.subject.clone(),
+                topic,
+                estimated_minutes: 25,
+                priority: self.calculate_priority_by_mastery(tp.mastery_level),
+            });
+            total_minutes += 25;
         }
 
         Ok(DailyPlan {
@@ -125,7 +162,6 @@ impl VaultParser {
     }
 
     fn calculate_priority(&self, subject: &Subject) -> u8 {
-        // Lower mastery = higher priority
         match subject.mastery_level {
             1 => 5,
             2 => 4,
@@ -136,11 +172,45 @@ impl VaultParser {
         }
     }
 
+    fn calculate_priority_by_mastery(&self, mastery_level: u8) -> u8 {
+        match mastery_level {
+            1 => 5,
+            2 => 4,
+            3 => 3,
+            4 => 2,
+            5 => 1,
+            _ => 3,
+        }
+    }
+
+    fn parse_energy_profiles(&self) -> VaultResult<Vec<EnergyProfile>> {
+        let config_path = self.vault_path.join("Config").join("Materias.md");
+        if !config_path.exists() {
+            return Ok(Vec::new());
+        }
+
+        let content = fs::read_to_string(&config_path)?;
+        let re =
+            Regex::new(r"Energy:\s*(\d{1,2}:\d{2}-\d{1,2}:\d{2})\s*\|\s*Nivel:\s*(\d)").unwrap();
+        let mut profiles = Vec::new();
+
+        for cap in re.captures_iter(&content) {
+            profiles.push(EnergyProfile {
+                time_slot: cap.get(1).unwrap().as_str().to_string(),
+                energy_level: cap.get(2).unwrap().as_str().parse().unwrap_or(3),
+            });
+        }
+
+        Ok(profiles)
+    }
+
     pub fn write_hoy(&self, plan: &DailyPlan) -> VaultResult<()> {
-        let hoy_path = self
-            .vault_path
-            .join("HOY")
-            .join(format!("{}.md", plan.date));
+        let hoy_dir = self.vault_path.join("HOY");
+        if !hoy_dir.exists() {
+            fs::create_dir_all(&hoy_dir)?;
+        }
+
+        let hoy_path = hoy_dir.join(format!("{}.md", plan.date));
 
         let mut content = format!("# Plan de Estudio - {}\n\n", plan.date);
         content.push_str(&format!(
