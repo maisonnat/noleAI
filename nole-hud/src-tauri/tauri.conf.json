@@ -1,41 +1,31 @@
 {
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "NoleAI HUD",
+  "version": "0.1.0",
+  "identifier": "com.noleai.hud",
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
-    "devPath": "../",
-    "distDir": "../"
+    "frontendDist": "../dist"
   },
-  "package": {
-    "productName": "NoleAI HUD",
-    "version": "0.1.0"
-  },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true
-      }
-    },
-    "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "com.noleai.hud",
-      "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"]
-    },
-    "security": {
-      "csp": null
-    },
+  "app": {
     "windows": [
       {
-        "title": "NoleAI",
-        "width": 320,
-        "height": 200,
-        "resizable": false,
-        "decorations": false,
-        "transparent": false,
-        "alwaysOnTop": true
+        "title": "NoleAI HUD",
+        "width": 1200,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false
       }
-    ]
-  }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": []
+  },
+  "plugins": {}
 }

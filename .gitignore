@@ -1,14 +1,12 @@
-.aider*
-
 # Rust
+target/
 **/*.rs.bk
 *.pdb
-target/
 Cargo.lock
 
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
 *.swo
 *~
@@ -17,9 +15,33 @@ Cargo.lock
 .DS_Store
 Thumbs.db
 
+# Engram data
+.engram-data/
+
+# Vault (user-specific)
+vault/
+
 # Logs
 *.log
 
 # Environment
 .env
 .env.*
+
+# Tauri
+nole-hud/src-tauri/target/
+nole-hud/target/
+
+# Build artifacts
+dist/
+build/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Testing
+coverage/
+
+# Aider (AI assistant)
+.aider.*

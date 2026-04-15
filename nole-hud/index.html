@@ -1,156 +1,612 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NoleAI HUD</title>
-        <style>
-        body { font-family: sans-serif; background: #1e1e1e; color: #d4d4d4; margin: 0; padding: 15px; display: flex; flex-direction: column; height: 100vh; justify-content: center; box-sizing: border-box; }
-        .task-box { background: #252526; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center; }
-        h3 { margin: 0 0 10px 0; color: #9cdcfe; font-size: 14px; }
-        p { margin: 0; font-size: 16px; font-weight: bold;}
-        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; }
-        button { background: #0e639c; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; flex: 1; font-size: 14px; }
-        button:hover { background: #1177bb; }
-        button.stop { background: #a31515; }
-        button.emergency { background: #5a1e1e; font-size: 12px; }
-        .status-bar { display: flex; justify-content: space-between; font-size: 10px; margin-top: 10px; color: #606060; }
-        
-        /* Quiz UI styles */
-        .quiz-container { display: none; background: #2d2d2d; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        .quiz-container.active { display: block; }
-        .question { font-size: 14px; margin-bottom: 10px; }
-        .options { display: flex; flex-direction: column; gap: 8px; }
-        .option { background: #3c3c3c; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-        .option:hover { background: #4c4c4c; }
-        .option.selected { background: #0e639c; }
-        .quiz-feedback { font-size: 12px; margin-top: 10px; min-height: 20px; }
-        .correct { color: #4ec9b0; }
-        .incorrect { color: #f48771; }
-        </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tauri-apps/api@1.5.0/dist/tauri.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --accent: #e94560;
+            --accent-hover: #ff6b6b;
+            --text: #eee;
+            --warning: #f39c12;
+            --success: #27ae60;
+            --info: #3498db;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--bg-primary);
+            color: var(--text);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .timer-section {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .timer-display {
+            font-size: 72px;
+            font-weight: bold;
+            color: var(--bg-tertiary);
+            margin: 20px 0;
+        }
+        .timer-controls button {
+            padding: 15px 30px;
+            margin: 0 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: var(--accent);
+            color: white;
+        }
+        .timer-controls button:hover {
+            background: var(--accent-hover);
+        }
+        .timer-controls button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        .plan-section {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .task-list {
+            list-style: none;
+            padding: 0;
+        }
+        .task-item {
+            background: var(--bg-tertiary);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .subject-badge {
+            background: var(--accent);
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .controls button {
+            padding: 12px 24px;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: var(--bg-tertiary);
+            color: white;
+        }
+        .controls button:hover {
+            background: var(--bg-primary);
+        }
+        .controls button.active {
+            background: var(--accent);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--bg-secondary);
+            padding: 40px;
+            border-radius: 12px;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            max-width: 500px;
+            width: 90%;
+        }
+        .modal.active {
+            display: block;
+        }
+        .modal h2 {
+            color: var(--accent);
+            margin-top: 0;
+        }
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 999;
+        }
+        .overlay.active {
+            display: block;
+        }
+        .graph-section {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .graph-section.visible {
+            display: block;
+        }
+        .graph-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 400px;
+        }
+        .graph-container svg {
+            width: 100%;
+            height: auto;
+        }
+        .node-detail {
+            background: var(--bg-tertiary);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+        .node-detail.visible {
+            display: block;
+        }
+        .alert-banner {
+            background: var(--warning);
+            color: #000;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            font-weight: bold;
+        }
+        .alert-banner.visible {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .alert-banner .dismiss {
+            background: rgba(0,0,0,0.2);
+            border: none;
+            padding: 5px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .overload-mode .timer-section,
+        .overload-mode .plan-section {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .overload-panel {
+            background: #2c0000;
+            border: 2px solid var(--accent);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .overload-panel.visible {
+            display: block;
+        }
+        .breathing-exercise {
+            text-align: center;
+            padding: 30px;
+        }
+        .breathing-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: var(--accent);
+            margin: 20px auto;
+            animation: breathe 8s ease-in-out infinite;
+        }
+        @keyframes breathe {
+            0%, 100% { transform: scale(0.6); opacity: 0.4; }
+            50% { transform: scale(1.0); opacity: 1; }
+        }
+        .breathing-text {
+            font-size: 18px;
+            color: var(--text);
+            margin-top: 15px;
+        }
+        body.light-theme {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #e0e0e0;
+            --text: #333;
+            --accent: #e94560;
+            --accent-hover: #d63851;
+        }
+        body.light-theme .timer-display {
+            color: #555;
+        }
+        body.light-theme .task-item {
+            color: #333;
+        }
+        button:focus-visible, .controls button:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
+    </style>
 </head>
 <body>
-    <div class="task-box">
-        <h3>FOCO ACTUAL</h3>
-        <p id="current-task">Cargando plan...</p>
-    </div>
-    
-    <div class="btn-group">
-        <button id="start-btn" onclick="toggleSession()">Iniciar Sesión</button>
+    <div class="container">
+        <h1>NoleAI HUD - ADHD Study Assistant</h1>
+
+        <div class="alert-banner" id="alertBanner">
+            <span id="alertMessage"></span>
+            <button class="dismiss" onclick="dismissAlert()">Dismiss</button>
+        </div>
+
+        <div class="overload-panel" id="overloadPanel">
+            <h2>🧘 Overload Mode - Simplified Plan</h2>
+            <div id="overloadTasks"></div>
+            <div class="breathing-exercise">
+                <h3>Breathing Exercise</h3>
+                <div class="breathing-circle" id="breathingCircle"></div>
+                <p class="breathing-text" id="breathingText">Breathe in... and out...</p>
+            </div>
+            <button onclick="exitOverloadMode()" style="padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; background: var(--accent); color: white; font-size: 14px; margin-top: 15px;">Exit Overload Mode</button>
+        </div>
+
+        <div class="timer-section">
+            <h2>Pomodoro Timer</h2>
+            <div class="timer-display" id="timerDisplay">25:00</div>
+            <div class="timer-controls">
+                <button id="startBtn" onclick="startTimer()">▶ Start</button>
+                <button id="pauseBtn" onclick="pauseTimer()" disabled>⏸ Pause</button>
+                <button id="resumeBtn" onclick="resumeTimer()" disabled>▶ Resume</button>
+                <button id="stopBtn" onclick="stopTimer()" disabled>⏹ Stop</button>
+            </div>
+        </div>
+
+        <div class="plan-section">
+            <div class="controls">
+                <button onclick="generateDailyPlan()">📋 Generate Daily Plan</button>
+                <button onclick="triggerOverloadMode()">🚨 Overload Mode</button>
+                <button id="graphToggle" onclick="toggleKnowledgeGraph()">🧠 Show Knowledge Graph</button>
+                <button onclick="runStressTest()">🧪 Stress Test</button>
+                <button onclick="toggleTheme()">🌓 Toggle Theme</button>
+            </div>
+            <h2>Today's Study Plan</h2>
+            <ul class="task-list" id="taskList">
+                <li class="task-item">
+                    <span>No tasks yet - generate your daily plan!</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="graph-section" id="graphSection">
+            <h2>Knowledge Graph</h2>
+            <div class="graph-container" id="graphContainer"></div>
+            <div class="node-detail" id="nodeDetail">
+                <h3 id="nodeDetailTitle"></h3>
+                <p id="nodeDetailMastery"></p>
+                <p id="nodeDetailSubject"></p>
+            </div>
+        </div>
+
+        <div id="stressTestResults" style="background: var(--bg-secondary); padding: 30px; border-radius: 12px; margin-bottom: 20px; display: none;">
+            <h2>Stress Test Results</h2>
+            <div id="stressTestContent"></div>
+        </div>
     </div>
 
-    <!-- Hito 4: Botón para probar tema con NotebookLM -->
-    <div class="btn-group">
-        <input type="text" id="topic-input" placeholder="Tema a probar..." style="flex: 1; padding: 8px; margin-right: 5px; border: none; border-radius: 4px; background: #3c3c3c; color: #d4d4d4;">
-        <button onclick="testTopic()">Test</button>
-    </div>
+    <div class="overlay" id="modalOverlay"></div>
 
-    <!-- Hito 4: Quiz UI Container -->
-    <div id="quiz-container" class="quiz-container">
-        <div class="question" id="question-text"></div>
-        <div class="options" id="options-container"></div>
-        <div class="quiz-feedback" id="quiz-feedback"></div>
-    </div>
-
-    <!-- Hito 5: Botón de emergencia TDAH -->
-    <button class="emergency" onclick="activateOverload()">🚨 No Puedo (Simplificar)</button>
-
-    <div class="status-bar">
-        <span>core: v0.1.0</span>
-        <span id="status-msg">listo</span>
+    <div class="modal" id="breakModal">
+        <h2>⏰ Time for a Break!</h2>
+        <p>Great job completing a Pomodoro session. Take a 5-minute break to recharge.</p>
+        <div class="timer-controls">
+            <button onclick="closeModal()">Got it!</button>
+        </div>
     </div>
 
     <script>
         const { invoke } = window.__TAURI__.tauri;
+        const { listen } = window.__TAURI__.event;
 
-        window.addEventListener("DOMContentLoaded", () => {
-            invoke("get_daily_task").then((task) => {
-                document.getElementById("current-task").textContent = task;
-            });
-        });
+        let timerInterval = null;
+        let graphVisible = false;
+        let cachedGraphData = null;
+        let breathingInterval = null;
+        let overloadTimeout = null;
 
-        async function toggleSession() {
-            const btn = document.getElementById("start-btn");
-            const result = await invoke("start_session");
-            
-            if (result.includes("iniciada")) {
-                btn.textContent = "En Sesión (25m)";
-                btn.classList.add("stop");
-                document.getElementById("status-msg").textContent = "en progreso";
-            }
+        // Timer functions
+        async function startTimer() {
+            await invoke('start_timer');
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = false;
         }
 
-        async function activateOverload() {
-            const result = await invoke("trigger_overload_mode");
-            document.getElementById("current-task").textContent = "Respira. Solo enfócate en lo más básico.";
-            document.getElementById("start-btn").style.display = 'none'; // Ocultar complejidad
-            document.getElementById("status-msg").textContent = "modo sobrecarga";
+        async function pauseTimer() {
+            await invoke('pause_timer');
+            document.getElementById('pauseBtn').disabled = true;
+            document.getElementById('resumeBtn').disabled = false;
         }
 
-        let currentQuestions = [];
-        let currentQuestionIndex = 0;
-        
-        async function testTopic() {
-            const topic = document.getElementById("topic-input").value;
-            if (!topic) return;
-            
+        async function resumeTimer() {
+            await invoke('resume_timer');
+            document.getElementById('resumeBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = false;
+        }
+
+        async function stopTimer() {
+            await invoke('stop_timer');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('pauseBtn').disabled = true;
+            document.getElementById('resumeBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('timerDisplay').textContent = '25:00';
+        }
+
+        function updateTimerDisplay(remainingSeconds) {
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            document.getElementById('timerDisplay').textContent =
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function handleTimerTick(event) {
+            updateTimerDisplay(event.payload.remaining_secs);
+        }
+
+        function showBreakModal() {
+            document.getElementById('breakModal').classList.add('active');
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('breakModal').classList.remove('active');
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+
+        // Daily plan
+        async function generateDailyPlan() {
             try {
-                const questions = await invoke("test_topic", { topic });
-                currentQuestions = questions;
-                currentQuestionIndex = 0;
-                showQuiz();
+                await invoke('generate_daily_plan');
+                refreshTaskDisplay();
+                alert('Daily plan generated!');
             } catch (error) {
-                alert(`Error: ${error}`);
+                console.error('Failed to generate plan:', error);
+                alert('Failed to generate daily plan. Please check the vault directory.');
             }
         }
-        
-        function showQuiz() {
-            if (currentQuestions.length === 0 || currentQuestionIndex >= currentQuestions.length) {
-                document.getElementById("quiz-container").classList.remove("active");
+
+        function refreshTaskDisplay() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '<li class="task-item"><span>Plan refreshed from vault!</span></li>';
+        }
+
+        // Overload mode
+        async function triggerOverloadMode() {
+            try {
+                await invoke('trigger_overload_mode');
+                document.body.classList.add('overload-mode');
+                const panel = document.getElementById('overloadPanel');
+                panel.classList.add('visible');
+                document.getElementById('overloadTasks').innerHTML =
+                    '<p>Take it easy. Focus on one simple task.</p><ul><li>Review one concept at your own pace</li></ul>';
+                startBreathingExercise();
+                overloadTimeout = setTimeout(() => {
+                    exitOverloadMode();
+                }, 15 * 60 * 1000);
+            } catch (error) {
+                console.error('Failed to activate overload mode:', error);
+            }
+        }
+
+        function exitOverloadMode() {
+            document.body.classList.remove('overload-mode');
+            document.getElementById('overloadPanel').classList.remove('visible');
+            stopBreathingExercise();
+            if (overloadTimeout) {
+                clearTimeout(overloadTimeout);
+                overloadTimeout = null;
+            }
+        }
+
+        function startBreathingExercise() {
+            const textEl = document.getElementById('breathingText');
+            let phase = 0;
+            const phases = ['Breathe in...', 'Hold...', 'Breathe out...', 'Hold...'];
+            textEl.textContent = phases[0];
+            breathingInterval = setInterval(() => {
+                phase = (phase + 1) % phases.length;
+                textEl.textContent = phases[phase];
+            }, 2000);
+        }
+
+        function stopBreathingExercise() {
+            if (breathingInterval) {
+                clearInterval(breathingInterval);
+                breathingInterval = null;
+            }
+        }
+
+        // Knowledge graph
+        function toggleKnowledgeGraph() {
+            graphVisible = !graphVisible;
+            const section = document.getElementById('graphSection');
+            const btn = document.getElementById('graphToggle');
+            if (graphVisible) {
+                section.classList.add('visible');
+                btn.classList.add('active');
+                btn.textContent = '🧠 Hide Knowledge Graph';
+                loadKnowledgeGraph();
+            } else {
+                section.classList.remove('visible');
+                btn.classList.remove('active');
+                btn.textContent = '🧠 Show Knowledge Graph';
+            }
+        }
+
+        async function loadKnowledgeGraph() {
+            try {
+                const data = await invoke('get_knowledge_graph');
+                cachedGraphData = data;
+                renderKnowledgeGraph(data);
+            } catch (error) {
+                console.error('Failed to load knowledge graph:', error);
+                document.getElementById('graphContainer').innerHTML =
+                    '<p style="color: #666; text-align: center;">Failed to load knowledge graph. Check vault configuration.</p>';
+            }
+        }
+
+        function renderKnowledgeGraph(data) {
+            const container = document.getElementById('graphContainer');
+            if (!data.nodes || data.nodes.length === 0) {
+                container.innerHTML = '<p style="color: #666; text-align: center;">No data available. Generate a daily plan first.</p>';
                 return;
             }
-            
-            const container = document.getElementById("quiz-container");
-            container.classList.add("active");
-            
-            const questionText = currentQuestions[currentQuestionIndex];
-            document.getElementById("question-text").textContent = `Pregunta ${currentQuestionIndex + 1}/${currentQuestions.length}: ${questionText}`;
-            
-            const optionsContainer = document.getElementById("options-container");
-            optionsContainer.innerHTML = "";
-            
-            const options = ["Verdadero", "Falso"];
-            options.forEach((option, index) => {
-                const optionDiv = document.createElement("div");
-                optionDiv.className = "option";
-                optionDiv.textContent = option;
-                optionDiv.onclick = () => selectOption(index, option === "Verdadero");
-                optionsContainer.appendChild(optionDiv);
+
+            const masteryColors = {
+                1: '#e74c3c',
+                2: '#e67e22',
+                3: '#f1c40f',
+                4: '#2ecc71',
+                5: '#27ae60'
+            };
+
+            let mermaidCode = 'graph TD\n';
+            data.nodes.forEach(node => {
+                const color = masteryColors[node.mastery_level] || '#999';
+                mermaidCode += `    ${node.id}["${node.label}<br/>Mastery: ${node.mastery_level}"]:::mastery${node.mastery_level}\n`;
             });
-            
-            document.getElementById("quiz-feedback").textContent = "";
+            data.edges.forEach(edge => {
+                const thickness = edge.strength > 0.6 ? '===' : edge.strength > 0.3 ? '--' : '-.->';
+                mermaidCode += `    ${edge.source} ${thickness}> ${edge.target}\n`;
+            });
+
+            mermaidCode += '    classDef mastery1 fill:#e74c3c,stroke:#c0392b,color:#fff\n';
+            mermaidCode += '    classDef mastery2 fill:#e67e22,stroke:#d35400,color:#fff\n';
+            mermaidCode += '    classDef mastery3 fill:#f1c40f,stroke:#f39c12,color:#000\n';
+            mermaidCode += '    classDef mastery4 fill:#2ecc71,stroke:#27ae60,color:#fff\n';
+            mermaidCode += '    classDef mastery5 fill:#27ae60,stroke:#1e8449,color:#fff\n';
+
+            container.innerHTML = '<pre class="mermaid">' + mermaidCode + '</pre>';
+            mermaid.run({ nodes: [container.querySelector('.mermaid')] });
+
+            container.onclick = function(e) {
+                const target = e.target;
+                if (target && target.closest('.node')) {
+                    const nodeId = target.closest('.node').id;
+                    showNodeDetail(nodeId, data);
+                }
+            };
         }
-        
-        function selectOption(index, isCorrect) {
-            const options = document.querySelectorAll(".option");
-            options.forEach(opt => opt.classList.remove("selected"));
-            options[index].classList.add("selected");
-            
-            const feedback = document.getElementById("quiz-feedback");
-            
-            if (isCorrect) {
-                feedback.textContent = "✓ Correcto";
-                feedback.className = "quiz-feedback correct";
-            } else {
-                feedback.textContent = "✗ Incorrecto";
-                feedback.className = "quiz-feedback incorrect";
+
+        function showNodeDetail(nodeId, data) {
+            const node = data.nodes.find(n => n.id === nodeId);
+            if (!node) return;
+            const detail = document.getElementById('nodeDetail');
+            document.getElementById('nodeDetailTitle').textContent = node.label;
+            document.getElementById('nodeDetailMastery').textContent = `Mastery Level: ${node.mastery_level}/5`;
+            document.getElementById('nodeDetailSubject').textContent = `Subject: ${node.subject}`;
+            detail.classList.add('visible');
+        }
+
+        // Anti-pattern alerts
+        function showAntiPatternAlert(patternType, message) {
+            const banner = document.getElementById('alertBanner');
+            document.getElementById('alertMessage').textContent = `⚠ ${message}`;
+            banner.classList.add('visible');
+        }
+
+        function dismissAlert() {
+            document.getElementById('alertBanner').classList.remove('visible');
+        }
+
+        // Theme toggle
+        function toggleTheme() {
+            document.body.classList.toggle('light-theme');
+        }
+
+        // Keyboard accessibility
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                dismissAlert();
             }
-            
-            setTimeout(() => {
-                currentQuestionIndex++;
-                showQuiz();
-            }, 1500);
+        });
+
+        // Stress test
+        async function runStressTest() {
+            try {
+                const pdfDir = prompt('Enter PDF directory path:', './test-pdfs');
+                if (!pdfDir) return;
+                const result = await invoke('run_stress_test', { pdfDirectory: pdfDir });
+                const container = document.getElementById('stressTestResults');
+                document.getElementById('stressTestContent').innerHTML =
+                    `<div class="task-item"><span>Test ID: ${result.test_id}</span></div>` +
+                    `<div class="task-item"><span>PDFs Processed: ${result.pdfs_processed}</span></div>` +
+                    `<div class="task-item"><span>Quizzes Generated: ${result.quizzes_generated}</span></div>` +
+                    `<div class="task-item"><span>Average Time: ${result.average_time_ms}ms</span></div>` +
+                    (result.errors.length > 0 ? `<div class="task-item"><span>Errors: ${result.errors.join(', ')}</span></div>` : '');
+                container.style.display = 'block';
+            } catch (error) {
+                console.error('Stress test failed:', error);
+                alert('Stress test failed: ' + error);
+            }
         }
+
+        // Event listeners
+        listen('TimerTick', handleTimerTick);
+        listen('TimerBreakRequested', showBreakModal);
+        listen('ObsidianVaultChanged', () => {
+            refreshTaskDisplay();
+        });
+        listen('AntiPatternDetected', (event) => {
+            showAntiPatternAlert(event.payload.pattern_type, event.payload.message);
+        });
+        listen('OverloadPlanGenerated', (event) => {
+            const tasks = event.payload.simplified_tasks;
+            document.getElementById('overloadTasks').innerHTML =
+                '<ul>' + tasks.map(t => `<li>${t}</li>`).join('') + '</ul>';
+        });
+
+        // Poll for timer state
+        setInterval(async () => {
+            try {
+                const state = await invoke('get_timer_state');
+                if (state.is_running && !state.is_paused) {
+                    // UI updated by events
+                }
+            } catch (error) {
+                console.error('Failed to get timer state:', error);
+            }
+        }, 1000);
     </script>
 </body>
 </html>

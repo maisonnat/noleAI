@@ -1,26 +1,62 @@
-/// Motor de memoria persistente - The Crab Engram
-pub struct Engram;
+pub mod storage;
+pub mod models;
+pub mod fsrs;
 
-impl Engram {
-    pub fn new() -> Self {
-        Self
-    }
+pub use storage::{Storage, FileStorage};
+pub use models::{SessionRecord, MasteryLevel, SessionMetrics};
 
-    /// Guardar una sesión de estudio finalizada
-    pub fn mem_save(&self, subject: &str, duration_mins: u32) -> Result<(), String> {
-        println!("🧠 [Engram] Sesión guardada: {} ({} mins)", subject, duration_mins);
-        Ok(())
-    }
+use chrono::Utc;
+use storage::StorageResult;
 
-    /// Obtener el nivel de maestría de un tema (Mock)
-    pub fn get_mastery_level(&self, subject: &str) -> f32 {
-        println!("🧠 [Engram] Consultando maestría para {}", subject);
-        45.0 
-    }
+/// Save a study session record using the provided storage backend.
+pub async fn mem_save(
+    storage: &dyn Storage,
+    subject: &str,
+    duration_seconds: u32,
+    breaks: u32,
+) -> StorageResult<()> {
+    let session = SessionRecord {
+        timestamp: Utc::now(),
+        subject: subject.to_string(),
+        duration_seconds,
+        breaks,
+    };
+    storage.save_session(&session).await
+}
 
-    /// Calcular las revisiones pendientes con algoritmo FSRS (Mock)
-    pub fn mem_reviews(&self) -> Vec<String> {
-        println!("🧠 [Engram] Calculando repaso espaciado...");
-        vec!["Concepto A".to_string(), "Concepto B".to_string()]
+/// Retrieve the mastery level for a given subject.
+pub async fn get_mastery_level(
+    storage: &dyn Storage,
+    subject: &str,
+) -> StorageResult<Option<MasteryLevel>> {
+    storage.get_mastery(subject).await
+}
+
+/// Get all mastery levels that are due for review based on FSRS intervals.
+///
+/// Filters mastery records whose next scheduled review date has passed.
+pub async fn mem_reviews(
+    storage: &dyn Storage,
+) -> StorageResult<Vec<MasteryLevel>> {
+    let all_mastery = storage.get_all_mastery().await?;
+    let now = chrono::Utc::now();
+    Ok(all_mastery
+        .into_iter()
+        .filter(|m| {
+            let (_, interval) = fsrs::calculate_next_review(
+                m.last_updated,
+                m.review_count.max(1),
+                3,
+            );
+            m.last_updated + chrono::Duration::days(interval as i64) <= now
+        })
+        .collect())
+}
+
+/// Ensure the data directory exists, creating it if necessary.
+pub fn ensure_data_dir(path: &std::path::Path) -> std::io::Result<()> {
+    if !path.exists() {
+        std::fs::create_dir_all(path)?;
     }
+    Ok(())
 }

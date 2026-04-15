@@ -13,8 +13,8 @@ tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-nole-core = { path = "../../nole-core" }
-the-crab-engram = { path = "../../the-crab-engram" }
+nole-core = { path = "../nole-core" }
+the-crab-engram = { path = "../the-crab-engram" }
 tokio = { version = "1.35", features = ["full"] }
 async-trait = "0.1.74"
 async-channel = "2.1"

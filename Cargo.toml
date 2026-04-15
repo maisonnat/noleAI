@@ -1,16 +1,42 @@
 [workspace]
-resolver = "2"
 members = [
     "nole-core",
-    "nole-hud/src-tauri",
     "the-crab-engram",
-    "notebooklm-rust-mcp",
+    "notebooklm-rust-mcp"
 ]
+resolver = "2"
 
 [workspace.dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+async-trait = "0.1.74"
+
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
 anyhow = "1.0"
-chrono = { version = "0.4", features = ["serde"] }
-tokio = { version = "1", features = ["full"] }
+
+# Event handling
+async-channel = "2.1"
+
+# File watching
 notify = "6.1"
+
+# Obsidian parsing
+regex = "1.10"
+chrono = { version = "0.4", features = ["serde"] }
+
+# PDF processing
+pdf-extract = "0.7"
+
+# MCP
+serde_yaml = "0.9"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["NoleAI Team"]

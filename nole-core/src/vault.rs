@@ -1,324 +1,262 @@
-use anyhow::Result;
-use chrono::Local;
+use crate::prioritization::{
+    calculate_current_energy_with_profile, get_energy_based_task_count, prioritize_tasks,
+    EnergyProfile, TaskPriority,
+};
+use chrono::{DateTime, Utc};
+use regex::Regex;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use thiserror::Error;
 
-/// Lee el archivo de materias y extrae una lista simple.
-/// Formato esperado en Materias.md: Lista con viñetas ("- Materia")
-pub fn parse_materias(vault_path: &Path) -> Result<Vec<String>> {
-    let materias_path = vault_path.join("Config").join("Materias.md");
+#[derive(Error, Debug)]
+pub enum VaultError {
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("Parse error: {0}")]
+    ParseError(String),
+    #[error("Vault path not found: {0}")]
+    VaultNotFound(PathBuf),
+}
 
-    if !materias_path.exists() {
-        return Ok(vec![]);
-    }
+pub type VaultResult<T> = Result<T, VaultError>;
 
-    let content = fs::read_to_string(materias_path)?;
-    let materias = content
-        .lines()
-        .filter_map(|line| {
-            let trimmed = line.trim();
-            if trimmed.starts_with("- ") {
-                Some(trimmed.trim_start_matches("- ").to_string())
-            } else {
-                None
-            }
+#[derive(Debug, Clone)]
+pub struct Subject {
+    pub name: String,
+    pub mastery_level: u8, // 1-5 scale
+    pub topics: Vec<String>,
+    pub last_studied: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StudyTask {
+    pub subject: String,
+    pub topic: String,
+    pub estimated_minutes: u32,
+    pub priority: u8, // 1-5 scale
+}
+
+#[derive(Debug, Clone)]
+pub struct DailyPlan {
+    pub date: String,
+    pub tasks: Vec<StudyTask>,
+    pub total_estimated_minutes: u32,
+}
+
+pub struct VaultParser {
+    vault_path: PathBuf,
+}
+
+impl VaultParser {
+    pub fn new<P: AsRef<Path>>(vault_path: P) -> VaultResult<Self> {
+        let path = vault_path.as_ref();
+        if !path.exists() {
+            return Err(VaultError::VaultNotFound(path.to_path_buf()));
+        }
+        Ok(Self {
+            vault_path: path.to_path_buf(),
         })
-        .collect();
+    }
 
-    Ok(materias)
-}
+    pub fn get_vault_path(&self) -> &Path {
+        &self.vault_path
+    }
 
-/// Genera el contenido inicial para el plan diario (HOY.md)
-pub fn generate_daily_plan(materias: &[String]) -> String {
-    let date = Local::now().format("%Y-%m-%d").to_string();
-    let mut plan = format!("# Plan Diario: {}\n\n", date);
+    pub fn set_vault_path(&mut self, new_path: PathBuf) {
+        self.vault_path = new_path;
+    }
 
-    plan.push_str("## Enfoque de Hoy\n");
-    plan.push_str("> *Generado por NoleAI Core - Prioridad: Fricción Cero*\n\n");
+    pub fn parse_config(&self) -> VaultResult<Vec<Subject>> {
+        let config_path = self.vault_path.join("Config").join("Materias.md");
+        if !config_path.exists() {
+            return Ok(Vec::new());
+        }
+        let content = fs::read_to_string(&config_path)?;
+        self.parse_subjects(&content)
+    }
 
-    if materias.is_empty() {
-        plan.push_str("- [ ] Definir materias en `Config/Materias.md`\n");
-    } else {
-        // Lógica básica de priorización: mostrar la primera materia como prioridad
-        plan.push_str(&format!(
-            "- [ ] **Prioridad 1:** {} (Sesión de 25 mins)\n",
-            materias[0]
-        ));
-        for materia in materias.iter().skip(1) {
-            plan.push_str(&format!("- [ ] {} \n", materia));
+    fn parse_subjects(&self, content: &str) -> VaultResult<Vec<Subject>> {
+        let mut subjects = Vec::new();
+        let subject_re = Regex::new(r"##\s+(.+)\s+\|\s+Nivel:\s*(\d+)").unwrap();
+        let topic_re = Regex::new(r"-\s+(.+)").unwrap();
+
+        let lines: Vec<&str> = content.lines().collect();
+        let mut current_subject: Option<Subject> = None;
+
+        for line in lines {
+            if let Some(caps) = subject_re.captures(line) {
+                if let Some(subject) = current_subject.take() {
+                    subjects.push(subject);
+                }
+
+                let name = caps.get(1).unwrap().as_str().to_string();
+                let mastery_level = caps.get(2).unwrap().as_str().parse().unwrap_or(3);
+
+                current_subject = Some(Subject {
+                    name,
+                    mastery_level,
+                    topics: Vec::new(),
+                    last_studied: None,
+                });
+            } else if let Some(caps) = topic_re.captures(line) {
+                if let Some(ref mut subject) = current_subject {
+                    subject
+                        .topics
+                        .push(caps.get(1).unwrap().as_str().to_string());
+                }
+            }
+        }
+
+        if let Some(subject) = current_subject {
+            subjects.push(subject);
+        }
+
+        Ok(subjects)
+    }
+
+    pub fn generate_daily_plan(&self, subjects: &[Subject]) -> VaultResult<DailyPlan> {
+        let date = Utc::now().format("%Y-%m-%d").to_string();
+
+        let energy_profiles = self.parse_energy_profiles().unwrap_or_default();
+        let energy = calculate_current_energy_with_profile(&energy_profiles);
+        let max_tasks = get_energy_based_task_count(energy);
+
+        let task_priorities: Vec<TaskPriority> = subjects
+            .iter()
+            .map(|s| TaskPriority {
+                subject: s.name.clone(),
+                deadline: None,
+                mastery_level: s.mastery_level,
+                last_reviewed: s.last_studied,
+                estimated_minutes: 25,
+            })
+            .collect();
+
+        let prioritized = prioritize_tasks(task_priorities);
+        let limited = prioritized.into_iter().take(max_tasks);
+
+        let mut tasks = Vec::new();
+        let mut total_minutes = 0u32;
+
+        for tp in limited {
+            let subject = subjects.iter().find(|s| s.name == tp.subject);
+            let topic = subject
+                .and_then(|s| s.topics.first())
+                .cloned()
+                .unwrap_or_else(|| "General review".to_string());
+
+            tasks.push(StudyTask {
+                subject: tp.subject.clone(),
+                topic,
+                estimated_minutes: 25,
+                priority: self.calculate_priority_by_mastery(tp.mastery_level),
+            });
+            total_minutes += 25;
+        }
+
+        Ok(DailyPlan {
+            date,
+            tasks,
+            total_estimated_minutes: total_minutes,
+        })
+    }
+
+    fn calculate_priority(&self, subject: &Subject) -> u8 {
+        match subject.mastery_level {
+            1 => 5,
+            2 => 4,
+            3 => 3,
+            4 => 2,
+            5 => 1,
+            _ => 3,
         }
     }
 
-    plan
-}
-
-/// Escribe el plan diario en el archivo HOY.md
-pub fn write_daily_plan(vault_path: &Path, content: &str) -> Result<()> {
-    let hoy_path = vault_path.join("HOY.md");
-    fs::write(hoy_path, content)?;
-    Ok(())
-}
-
-/// Genera el contenido del dashboard de progreso (Progreso.md)
-pub fn generate_progress_dashboard(_materias: &[String]) -> String {
-    let date = Local::now().format("%Y-%m-%d").to_string();
-    let mut dashboard = format!(
-        "# Dashboard de Progreso\n\n📅 Última actualización: {}\n\n",
-        date
-    );
-
-    dashboard.push_str("## 📊 Niveles de Maestría\n\n");
-    dashboard.push_str("| Materia | Nivel | Estado |\n");
-    dashboard.push_str("|---------|-------|--------|\n");
-
-    // Datos mock de maestría para demostración
-    let mock_mastery: Vec<(&str, f32, &str)> = vec![
-        ("Ciberdefensa", 65.0, "🟢 En progreso"),
-        ("Álgebra Lineal", 42.0, "🟡 Necesita repaso"),
-        ("Análisis Matemático", 30.0, "🔴 Inicio"),
-    ];
-
-    for (materia, nivel, estado) in mock_mastery {
-        let bar_len = (nivel / 10.0).min(10.0) as usize;
-        let bar = "█".repeat(bar_len);
-        let empty = "░".repeat(10 - bar_len);
-        dashboard.push_str(&format!(
-            "| {} | {}% {} {}| {} |\n",
-            materia, nivel, bar, empty, estado
-        ));
-    }
-
-    dashboard.push_str("\n## 🎯 Objetivos de la Semana\n\n");
-    dashboard.push_str("- [x] Completar módulo de criptografía básica\n");
-    dashboard.push_str("- [ ] Practicar 10 ejercicios de vectores\n");
-    dashboard.push_str("- [ ] Leer capítulo 4 de análisis\n");
-
-    dashboard.push_str("\n## 📈 Resumen de Sesiones\n\n");
-    dashboard.push_str("- **Horas Deep Work**: 12.5 hrs\n");
-    dashboard.push_str("- **Racha de estudio**: 3 días\n");
-    dashboard.push_str("- **Próximo repaso**: Mañana 10:00 AM\n");
-
-    dashboard
-}
-
-/// Escribe el dashboard de progreso en el archivo Progreso.md
-pub fn write_progress_dashboard(vault_path: &Path, content: &str) -> Result<()> {
-    let progreso_path = vault_path.join("Progreso.md");
-    fs::write(progreso_path, content)?;
-    Ok(())
-}
-
-/// Genera el contenido de la lista de repetición espaciada (Repaso.md)
-pub fn generate_review_list(reviews: &[String]) -> String {
-    let date = Local::now().format("%Y-%m-%d").to_string();
-    let mut review_list = format!(
-        "# Lista de Repaso Espaciado\n\n📅 Actualizado: {}\n\n",
-        date
-    );
-
-    review_list.push_str("## 📝 Conceptos Pendientes de Repaso\n\n");
-
-    if reviews.is_empty() {
-        review_list.push_str("*No hay revisiones pendientes. ¡Buen trabajo!*\n");
-    } else {
-        for (index, review) in reviews.iter().enumerate() {
-            review_list.push_str(&format!("{}. {}\n", index + 1, review));
+    fn calculate_priority_by_mastery(&self, mastery_level: u8) -> u8 {
+        match mastery_level {
+            1 => 5,
+            2 => 4,
+            3 => 3,
+            4 => 2,
+            5 => 1,
+            _ => 3,
         }
     }
 
-    review_list.push_str("\n## 📊 Estadísticas de Repaso\n\n");
-    review_list.push_str(&format!("- **Total pendientes**: {}\n", reviews.len()));
-    review_list.push_str("- **Próximo repaso sugerido**: Hoy\n");
-    review_list.push_str("- **Precisión media**: 75%\n");
+    fn parse_energy_profiles(&self) -> VaultResult<Vec<EnergyProfile>> {
+        let config_path = self.vault_path.join("Config").join("Materias.md");
+        if !config_path.exists() {
+            return Ok(Vec::new());
+        }
 
-    review_list
-}
+        let content = fs::read_to_string(&config_path)?;
+        let re =
+            Regex::new(r"Energy:\s*(\d{1,2}:\d{2}-\d{1,2}:\d{2})\s*\|\s*Nivel:\s*(\d)").unwrap();
+        let mut profiles = Vec::new();
 
-/// Escribe la lista de repetición espaciada en el archivo Repaso.md
-pub fn write_review_list(vault_path: &Path, content: &str) -> Result<()> {
-    let repaso_path = vault_path.join("Repaso.md");
-    fs::write(repaso_path, content)?;
-    Ok(())
-}
+        for cap in re.captures_iter(&content) {
+            profiles.push(EnergyProfile {
+                time_slot: cap.get(1).unwrap().as_str().to_string(),
+                energy_level: cap.get(2).unwrap().as_str().parse().unwrap_or(3),
+            });
+        }
 
-/// Genera la lista de repetición espaciada usando el sistema Engram
-pub fn generate_review_from_engram(engram: &the_crab_engram::Engram) -> Result<String> {
-    let reviews = engram.mem_reviews();
-    Ok(generate_review_list(&reviews))
-}
-
-/// Genera un resumen diario de sesiones de estudio
-pub fn generate_daily_summary(sessions: &[crate::anti_patterns::SessionMetrics]) -> Result<String> {
-    let date = Local::now().format("%Y-%m-%d").to_string();
-    let mut summary = format!("# Resumen de Sesión: {}\n\n", date);
-
-    if sessions.is_empty() {
-        summary.push_str("*No hubo sesiones de estudio hoy.*\n");
-        return Ok(summary);
+        Ok(profiles)
     }
 
-    let total_mins: u32 = sessions.iter().map(|s| s.duration_mins).sum();
-    let total_hours = total_mins / 60;
-    let remaining_mins = total_mins % 60;
+    pub fn write_hoy(&self, plan: &DailyPlan) -> VaultResult<()> {
+        let hoy_dir = self.vault_path.join("HOY");
+        if !hoy_dir.exists() {
+            fs::create_dir_all(&hoy_dir)?;
+        }
 
-    summary.push_str("## 📊 Resumen General\n\n");
-    summary.push_str(&format!(
-        "- **Total de tiempo**: {}h {}min\n",
-        total_hours, remaining_mins
-    ));
-    summary.push_str(&format!("- **Número de sesiones**: {}\n", sessions.len()));
-    summary.push_str(&format!(
-        "- **Promedio por sesión**: {}min\n",
-        total_mins / sessions.len() as u32
-    ));
+        let hoy_path = hoy_dir.join(format!("{}.md", plan.date));
 
-    summary.push_str("\n## 📝 Detalles por Sesión\n\n");
-    for (index, session) in sessions.iter().enumerate() {
-        summary.push_str(&format!("### Sesión {} - {}\n", index + 1, session.subject));
-        summary.push_str(&format!("- **Duración**: {} min\n", session.duration_mins));
-        summary.push_str(&format!(
-            "- **Inicio**: {}\n",
-            session.start_time.format("%H:%M")
+        let mut content = format!("# Plan de Estudio - {}\n\n", plan.date);
+        content.push_str(&format!(
+            "**Total estimado:** {} minutos\n\n",
+            plan.total_estimated_minutes
         ));
-        summary.push_str(&format!("- **Pausas**: {}\n", session.breaks_taken));
-        summary.push_str("\n");
+        content.push_str("## Tareas\n\n");
+
+        for (i, task) in plan.tasks.iter().enumerate() {
+            content.push_str(&format!(
+                "{}. [ ] {} - {} ({} min)\n",
+                i + 1,
+                task.subject,
+                task.topic,
+                task.estimated_minutes
+            ));
+        }
+
+        fs::write(&hoy_path, content)?;
+        Ok(())
     }
-
-    summary.push_str("## 💡 Reflexiones y Próximos Pasos\n\n");
-    summary.push_str("- **¿Qué funcionó bien hoy?**: (rellenar después de cada sesión)\n");
-    summary.push_str("- **¿Qué se puede mejorar?**: (rellenar después de cada sesión)\n");
-    summary.push_str("- **Plan para mañana**: (basado en el progreso actual)\n");
-
-    Ok(summary)
-}
-
-/// Escribe el resumen diario en el archivo correspondiente en Sesiones/daily-summaries/
-pub fn write_daily_summary(vault_path: &Path, content: &str) -> Result<()> {
-    let summaries_dir = vault_path.join("Sesiones").join("daily-summaries");
-    fs::create_dir_all(&summaries_dir)?;
-
-    let date = Local::now().format("%Y-%m-%d").to_string();
-    let summary_path = summaries_dir.join(format!("{}.md", date));
-    fs::write(summary_path, content)?;
-    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use tempfile::tempdir;
 
     #[test]
-    fn test_parse_materias_empty_file() {
-        let dir = tempdir().unwrap();
-        let config_dir = dir.path().join("Config");
-        fs::create_dir_all(&config_dir).unwrap();
-        let materias_path = config_dir.join("Materias.md");
-        fs::write(&materias_path, "").unwrap();
+    fn test_priority_calculation() {
+        let parser = VaultParser::new("/tmp").unwrap();
 
-        let result = parse_materias(dir.path());
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap().len(), 0);
-    }
+        let low_mastery = Subject {
+            name: "Math".to_string(),
+            mastery_level: 1,
+            topics: vec!["Algebra".to_string()],
+            last_studied: None,
+        };
 
-    #[test]
-    fn test_parse_materias_with_content() {
-        let dir = tempdir().unwrap();
-        let config_dir = dir.path().join("Config");
-        fs::create_dir_all(&config_dir).unwrap();
-        let materias_path = config_dir.join("Materias.md");
-        fs::write(&materias_path, "- Ciberdefensa\n- Álgebra\n- Análisis").unwrap();
+        let high_mastery = Subject {
+            name: "Physics".to_string(),
+            mastery_level: 5,
+            topics: vec!["Quantum".to_string()],
+            last_studied: None,
+        };
 
-        let result = parse_materias(dir.path());
-        assert!(result.is_ok());
-        let materias = result.unwrap();
-        assert_eq!(materias.len(), 3);
-        assert_eq!(materias[0], "Ciberdefensa");
-    }
-
-    #[test]
-    fn test_generate_daily_plan() {
-        let materias = vec!["Ciberdefensa".to_string(), "Álgebra".to_string()];
-        let plan = generate_daily_plan(&materias);
-
-        assert!(plan.contains("# Plan Diario"));
-        assert!(plan.contains("Ciberdefensa"));
-        assert!(plan.contains("Álgebra"));
-        assert!(plan.contains("Prioridad 1"));
-    }
-
-    #[test]
-    fn test_generate_progress_dashboard() {
-        let materias = vec!["Ciberdefensa".to_string()];
-        let dashboard = generate_progress_dashboard(&materias);
-
-        assert!(dashboard.contains("# Dashboard de Progreso"));
-        assert!(dashboard.contains("Niveles de Maestría"));
-        assert!(dashboard.contains("Ciberdefensa"));
-        assert!(dashboard.contains("Objetivos de la Semana"));
-    }
-
-    #[test]
-    fn test_generate_review_list() {
-        let reviews = vec![
-            "Concepto A".to_string(),
-            "Concepto B".to_string(),
-            "Concepto C".to_string(),
-        ];
-        let review_list = generate_review_list(&reviews);
-
-        assert!(review_list.contains("# Lista de Repaso Espaciado"));
-        assert!(review_list.contains("Conceptos Pendientes de Repaso"));
-        assert!(review_list.contains("Concepto A"));
-        assert!(review_list.contains("Concepto B"));
-        assert!(review_list.contains("Concepto C"));
-        assert!(review_list.contains("Total pendientes**"));
-    }
-
-    #[test]
-    fn test_generate_review_list_empty() {
-        let reviews: Vec<String> = vec![];
-        let review_list = generate_review_list(&reviews);
-
-        assert!(review_list.contains("# Lista de Repaso Espaciado"));
-        assert!(review_list.contains("No hay revisiones pendientes"));
-    }
-
-    #[test]
-    fn test_generate_daily_summary_empty() {
-        let sessions: Vec<crate::anti_patterns::SessionMetrics> = vec![];
-        let summary = generate_daily_summary(&sessions).unwrap();
-
-        assert!(summary.contains("No hubo sesiones de estudio hoy"));
-    }
-
-    #[test]
-    fn test_generate_daily_summary_with_sessions() {
-        use crate::anti_patterns::SessionMetrics;
-
-        let sessions = vec![
-            SessionMetrics {
-                start_time: Local::now(),
-                duration_mins: 30,
-                breaks_taken: 1,
-                subject: "Math".to_string(),
-            },
-            SessionMetrics {
-                start_time: Local::now(),
-                duration_mins: 25,
-                breaks_taken: 0,
-                subject: "Physics".to_string(),
-            },
-        ];
-
-        let summary = generate_daily_summary(&sessions).unwrap();
-
-        assert!(summary.contains("Resumen de Sesión"));
-        assert!(summary.contains("Total de tiempo"));
-        assert!(summary.contains("Número de sesiones"));
-        assert!(summary.contains("Sesión 1 - Math"));
-        assert!(summary.contains("Sesión 2 - Physics"));
-        assert!(summary.contains("Reflexiones y Próximos Pasos"));
+        assert_eq!(parser.calculate_priority(&low_mastery), 5);
+        assert_eq!(parser.calculate_priority(&high_mastery), 1);
     }
 }
